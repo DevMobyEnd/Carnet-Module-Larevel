@@ -33,14 +33,16 @@ class CarnetController extends Controller
         $carnets = [];
 
         foreach ($csvData as $index => $row) {
-            // Verificar si la fila tiene al menos 3 elementos
-            if (count($row) < 3 || empty(array_filter($row))) {
+            // Verificar si la fila tiene al menos 5 elementos (ahora incluimos Ficha y Programa)
+            if (count($row) < 5 || empty(array_filter($row))) {
                 continue; // Saltar esta fila si no tiene suficientes datos o está vacía
             }
 
             $Aprendiz = trim($row[0]) ?? 'Sin nombre';
             $Documento = trim($row[1]) ?? 'Sin documento';
             $Correo = trim($row[2]) ?? 'Sin correo';
+            $Ficha = trim($row[3]) ?? 'Sin ficha';
+            $Programa = trim($row[4]) ?? 'Sin programa';
 
             // Dividir el nombre completo
             $nombrePartes = explode(' ', $Aprendiz);
@@ -57,6 +59,8 @@ class CarnetController extends Controller
                 'aprendiz' => $Aprendiz,
                 'documento' => $Documento,
                 'correo' => $Correo,
+                'ficha' => $Ficha,
+                'programa' => $Programa,
                 'qr_code' => $qrCodeSvg,
                 'photo' => isset($photos[$index]) ? $photos[$index]->store('photos', 'public') : null,
             ];
