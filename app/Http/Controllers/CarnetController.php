@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Endroid\QrCode\QrCode;
+use Endroid\QrCode\QrCode;  
 use Endroid\QrCode\Writer\SvgWriter;
 
 class CarnetController extends Controller
@@ -52,8 +52,15 @@ class CarnetController extends Controller
             // Formatear los datos para el QR
             $qrData = "{$nombres}|{$apellidos}|{$Documento}";
             $qrCode = new QrCode($qrData);
+            $qrCode->setSize(120); // Reducir el tamaño del código QR a 80x80
             $writer = new SvgWriter();
             $qrCodeSvg = $writer->write($qrCode)->getString();
+
+            // Manejar la foto en memoria
+            $photoData = null;
+            if (isset($photos[$index])) {
+                $photoData = base64_encode(file_get_contents($photos[$index]->getRealPath()));
+            }
 
             $carnet = [
                 'aprendiz' => $Aprendiz,
@@ -62,7 +69,7 @@ class CarnetController extends Controller
                 'ficha' => $Ficha,
                 'programa' => $Programa,
                 'qr_code' => $qrCodeSvg,
-                'photo' => isset($photos[$index]) ? $photos[$index]->store('photos', 'public') : null,
+                'photo' => $photoData,
             ];
 
             $carnets[] = $carnet;
