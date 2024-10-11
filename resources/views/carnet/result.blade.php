@@ -160,6 +160,7 @@
             max-height: 90%;
             overflow-y: auto;
         }
+
     </style>
 </head>
 
@@ -185,7 +186,7 @@
         <div x-show="selectedCarnet !== null" class="modal-overlay" x-cloak @click.self="selectedCarnet = null">
             <div class="modal-content">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-medium text-gray-900">Carnet Digital</h3>
+                    <h3 class="text-lg font-medium text-gray-900 text-center w-full">Carnet Digital</h3>
                     <button @click="selectedCarnet = null" class="text-gray-400 hover:text-gray-500">
                         <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -229,6 +230,14 @@
                 class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline inline-block">
                 Volver al inicio
             </a>
+        </div>
+        <div class="text-center mt-8">
+            <form action="{{ route('carnet.sendAll') }}" method="POST">
+                @csrf
+                <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                    Enviar todos los carnets por correo
+                </button>
+            </form>
         </div>
     </div>
 

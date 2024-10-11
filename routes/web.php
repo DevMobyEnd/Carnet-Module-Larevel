@@ -6,3 +6,4 @@ use App\Http\Controllers\CarnetController;
 
 Route::get('/', [CarnetController::class, 'index'])->name('carnet.index');
 Route::post('/process', [CarnetController::class, 'processCsv'])->name('carnet.process');
+Route::post('/carnet/send-all', [CarnetController::class, 'sendAll'])->name('carnet.sendAll');
