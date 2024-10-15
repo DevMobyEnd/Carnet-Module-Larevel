@@ -84,6 +84,9 @@ class CarnetController extends Controller
             return back()->with('error', 'No se pudo procesar ningún dato del CSV. Por favor, verifica el formato del archivo.');
         }
 
+        // Guarda los carnets en la sesión
+        session(['carnets' => $carnets]);
+
         return view('carnet.result', compact('carnets'));
     }
 
@@ -144,31 +147,80 @@ class CarnetController extends Controller
             'photo' => 'required'
         ]);
 
+        Log::info('Datos del carnet a enviar: ', $carnetData);
+
         try {
             Mail::send('emails.carnet', $carnetData, function ($message) use ($carnetData) {
                 $message->to($carnetData['correo'], $carnetData['aprendiz'])
                     ->subject('Tu Carnet Digital SENA');
             });
 
+            Log::info('Correo enviado a: ' . $carnetData['correo']);
             return response()->json(['message' => 'Carnet enviado con éxito']);
         } catch (\Exception $e) {
             Log::error('Error al enviar el carnet por correo: ' . $e->getMessage());
-            return response()->json(['error' => 'No se pudo enviar el carnet'], 500);
+            return response()->json(['error' => 'No se pudo enviar el carnet: ' . $e->getMessage()], 500);
         }
     }
+
     public function sendAll()
-{
-    $carnets = session('carnets', []);
-
-    foreach ($carnets as $carnet) {
-        // Asumiendo que tienes un campo 'email' en tus datos de carnet
-        // Si no lo tienes, necesitarás ajustar esto para obtener el correo del aprendiz
-        $email = $carnet['correo'];
-
-        // Envía el correo
-        Mail::to($email)->send(new CarnetMail($carnet));
+    {
+        $carnets = session('carnets', []);
+        Log::info('Iniciando envío masivo de carnets. Total de carnets: ' . count($carnets));
+    
+        if (empty($carnets)) {
+            Log::warning('No hay carnets en la sesión para enviar.');
+            return redirect()->route('carnet.index')->with('warning', 'No hay carnets para enviar.');
+        }
+    
+        $successCount = 0;
+        $failCount = 0;
+        $failedEmails = [];
+    
+        foreach ($carnets as $carnet) {
+            Log::info('Intentando enviar carnet a: ' . $carnet['correo']);
+            try {
+                Mail::to($carnet['correo'])->send(new CarnetMail($carnet));
+                $successCount++;
+                Log::info('Carnet enviado con éxito a: ' . $carnet['correo']);
+            } catch (\Exception $e) {
+                Log::error('Error al enviar carnet a ' . $carnet['correo'] . ': ' . $e->getMessage());
+                $failCount++;
+                $failedEmails[] = $carnet['correo'];
+            }
+        }
+    
+        $message = "Proceso de envío completado. ";
+        $message .= $successCount > 0 ? "$successCount carnets enviados con éxito. " : "";
+        $message .= $failCount > 0 ? "$failCount carnets no pudieron ser enviados." : "";
+    
+        Log::info($message);
+    
+        if ($failCount > 0) {
+            Log::warning('Algunos carnets no pudieron ser enviados: ' . implode(', ', $failedEmails));
+            session()->flash('failedEmails', $failedEmails);
+            return redirect()->route('carnet.index')->with('warning', $message);
+        } else {
+            return redirect()->route('carnet.index')->with('success', $message);
+        }
     }
 
-    return redirect()->route('carnet.result')->with('message', 'Todos los carnets han sido enviados por correo.');
-}
+    public function testEmail()
+    {
+        try {
+            Mail::raw('Test email content', function ($message) {
+                $message->to('jhonnygonsalez7@gmail.com')
+                    ->subject('Test Email');
+            });
+            return "Email enviado correctamente";
+        } catch (\Exception $e) {
+            return "Error al enviar email: " . $e->getMessage();
+        }
+    }
+
+    public function result()
+    {
+        $carnets = session('carnets', []);
+        return view('carnet.result', compact('carnets'));
+    }
 }
