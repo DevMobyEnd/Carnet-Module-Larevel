@@ -135,86 +135,78 @@ class CarnetController extends Controller
         }
     }
 
-    public function sendCarnetByEmail(Request $request)
-    {
-        $carnetData = $request->validate([
-            'aprendiz' => 'required',
-            'documento' => 'required',
-            'correo' => 'required|email',
-            'ficha' => 'required',
-            'programa' => 'required',
-            'qr_code' => 'required',
-            'photo' => 'required'
-        ]);
+    // public function sendCarnetByEmail(Request $request)
+    // {
+    //     $carnetData = $request->validate([
+    //         'aprendiz' => 'required',
+    //         'documento' => 'required',
+    //         'correo' => 'required|email',
+    //         'ficha' => 'required',
+    //         'programa' => 'required',
+    //         'qr_code' => 'required',
+    //         'photo' => 'required'
+    //     ]);
 
-        Log::info('Datos del carnet a enviar: ', $carnetData);
+    //     Log::info('Datos del carnet a enviar: ', $carnetData);
 
-        try {
-            Mail::send('emails.carnet', $carnetData, function ($message) use ($carnetData) {
-                $message->to($carnetData['correo'], $carnetData['aprendiz'])
-                    ->subject('Tu Carnet Digital SENA');
-            });
+    //     try {
+    //         Mail::send('emails.carnet', $carnetData, function ($message) use ($carnetData) {
+    //             $message->to($carnetData['correo'], $carnetData['aprendiz'])
+    //                 ->subject('Tu Carnet Digital SENA');
+    //         });
 
-            Log::info('Correo enviado a: ' . $carnetData['correo']);
-            return response()->json(['message' => 'Carnet enviado con éxito']);
-        } catch (\Exception $e) {
-            Log::error('Error al enviar el carnet por correo: ' . $e->getMessage());
-            return response()->json(['error' => 'No se pudo enviar el carnet: ' . $e->getMessage()], 500);
-        }
-    }
+    //         Log::info('Correo enviado a: ' . $carnetData['correo']);
+    //         return response()->json(['message' => 'Carnet enviado con éxito']);
+    //     } catch (\Exception $e) {
+    //         Log::error('Error al enviar el carnet por correo: ' . $e->getMessage());
+    //         return response()->json(['error' => 'No se pudo enviar el carnet: ' . $e->getMessage()], 500);
+    //     }
+    // }
 
     public function sendAll()
     {
         $carnets = session('carnets', []);
         Log::info('Iniciando envío masivo de carnets. Total de carnets: ' . count($carnets));
-    
+
         if (empty($carnets)) {
             Log::warning('No hay carnets en la sesión para enviar.');
             return redirect()->route('carnet.index')->with('warning', 'No hay carnets para enviar.');
         }
-    
+
         $successCount = 0;
         $failCount = 0;
         $failedEmails = [];
-    
+
         foreach ($carnets as $carnet) {
-            Log::info('Intentando enviar carnet a: ' . $carnet['correo']);
+            // Verificar que todos los datos necesarios estén presentes
+            if (!isset($carnet['aprendiz'], $carnet['documento'], $carnet['correo'], $carnet['ficha'], $carnet['programa'], $carnet['qr_code'], $carnet['photo'])) {
+                Log::error('Datos de carnet incompletos:', $carnet);
+                $failCount++;
+                $failedEmails[] = $carnet['correo'] ?? 'Correo no especificado';
+                continue;
+            }
+
             try {
-                Mail::to($carnet['correo'])->send(new CarnetMail($carnet));
+                Mail::send('carnet.carnet', $carnet, function ($message) use ($carnet) {
+                    $message->to($carnet['correo'], $carnet['aprendiz'])
+                        ->subject('Tu Carnet Digital SENA');
+                });
+                Log::info('Correo enviado a: ' . $carnet['correo']);
                 $successCount++;
-                Log::info('Carnet enviado con éxito a: ' . $carnet['correo']);
             } catch (\Exception $e) {
-                Log::error('Error al enviar carnet a ' . $carnet['correo'] . ': ' . $e->getMessage());
+                Log::error('Error al enviar carnet a: ' . $carnet['correo'] . '. Error: ' . $e->getMessage());
                 $failCount++;
                 $failedEmails[] = $carnet['correo'];
             }
         }
-    
-        $message = "Proceso de envío completado. ";
-        $message .= $successCount > 0 ? "$successCount carnets enviados con éxito. " : "";
-        $message .= $failCount > 0 ? "$failCount carnets no pudieron ser enviados." : "";
-    
-        Log::info($message);
-    
+
+        Log::info("Proceso de envío completado. Éxitos: $successCount. Fallos: $failCount");
+
         if ($failCount > 0) {
             Log::warning('Algunos carnets no pudieron ser enviados: ' . implode(', ', $failedEmails));
-            session()->flash('failedEmails', $failedEmails);
-            return redirect()->route('carnet.index')->with('warning', $message);
+            return redirect()->route('carnet.index')->with('warning', "Se enviaron $successCount carnets. $failCount carnets no pudieron ser enviados.");
         } else {
-            return redirect()->route('carnet.index')->with('success', $message);
-        }
-    }
-
-    public function testEmail()
-    {
-        try {
-            Mail::raw('Test email content', function ($message) {
-                $message->to('jhonnygonsalez7@gmail.com')
-                    ->subject('Test Email');
-            });
-            return "Email enviado correctamente";
-        } catch (\Exception $e) {
-            return "Error al enviar email: " . $e->getMessage();
+            return redirect()->route('carnet.index')->with('success', "Todos los carnets ($successCount) fueron enviados con éxito.");
         }
     }
 
@@ -223,4 +215,16 @@ class CarnetController extends Controller
         $carnets = session('carnets', []);
         return view('carnet.result', compact('carnets'));
     }
+    // public function testEmail()
+    // {
+    //     try {
+    //         Mail::raw('Test email content', function ($message) {
+    //             $message->to('jhonnygonsalez7@gmail.com')
+    //                 ->subject('Test Email');
+    //         });
+    //         return "Email enviado correctamente";
+    //     } catch (\Exception $e) {
+    //         return "Error al enviar email: " . $e->getMessage();
+    //     }
+    // }
 }
