@@ -10,24 +10,22 @@ class CarnetMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public $carnetData;
+    public $carnet;
+    private $pdfPath;
 
-    public function __construct($carnetData)
+    public function __construct($carnet, $pdfPath)
     {
-        $this->carnetData = $carnetData;
+        $this->carnet = $carnet;
+        $this->pdfPath = $pdfPath;
     }
 
     public function build()
     {
-        return $this->view('carnet.carnet')
-                    ->with([
-                        'aprendiz' => $this->carnetData['aprendiz'],
-                        'documento' => $this->carnetData['documento'],
-                        'correo' => $this->carnetData['correo'],
-                        'ficha' => $this->carnetData['ficha'],
-                        'programa' => $this->carnetData['programa'],
-                        'photo' => $this->carnetData['photo'],
-                        'qr_code' => $this->carnetData['qr_code'],
+        return $this->subject('Tu Carnet SENA')
+                    ->view('emails.carnet') // Esta será una vista simple
+                    ->attach($this->pdfPath, [
+                        'as' => 'carnet.pdf',
+                        'mime' => 'application/pdf'
                     ]);
     }
 }

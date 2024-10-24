@@ -1,5 +1,16 @@
-<!-- resources/views/emails/carnet.blade.php -->
-<p>Hola {{ $carnet['aprendiz'] }},</p>
-<p>Tu carnet digital está listo para descargar. Haz clic en el siguiente enlace para obtenerlo:</p>
-<p><a href="{{ $downloadLink }}">Descargar Carnet</a></p>
-<p>Este enlace es válido por 24 horas.</p>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+</head>
+<body>
+    <p>Cordial saludo {{ $carnet['aprendiz'] }},</p>
+    
+    <p>Adjunto encontrarás tu carnet del SENA Regional Guaviare.</p>
+    
+    <p>Por favor, conserva este documento ya que es tu identificación como aprendiz.</p>
+    
+    <p>Atentamente,<br>
+    SENA Regional Guaviare</p>
+</body>
+</html>

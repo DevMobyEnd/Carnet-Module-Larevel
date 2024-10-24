@@ -1,51 +1,60 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>Carnet Digital SENA</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
+        @font-face {
+            font-family: 'Poppins';
+            font-style: normal;
+            font-weight: normal;
+            src: url({{ storage_path('fonts/Poppins-Regular.ttf') }}) format('truetype');
+        }
+
         body {
             margin: 0;
             padding: 0;
-            font-family: 'Poppins', Arial, sans-serif;
+            font-family: 'Poppins', sans-serif;
         }
+
         .card {
-            width: 340px;
-            height: 460px;
-            background: linear-gradient(184deg,
-                        #4ef84e 0%,
-                        #4ef84e 15%,
-                        rgba(225, 239, 218, 0.9) 35%,
-                        #e1efda 40%,
-                        #e1efda 100%);
+            width: 440px;
+            height: 560px;
+            background-color: #e1efda;
             border-radius: 10px;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
             position: relative;
-            display: flex;
-            flex-direction: column;
+            margin: 0 auto;
         }
+
+        .header-green {
+            height: 80px;
+            background-color: #4ef84e;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+        }
+
         .logo-container {
             position: absolute;
             top: 15px;
             left: 15px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
             width: 80px;
+            text-align: center;
         }
+
         .logo {
             width: 70px;
             height: auto;
         }
+
         .logo-text {
             font-size: 12px;
             color: #333333;
             margin-top: 5px;
-            font-weight: 600;
-            text-align: center;
+            font-weight: bold;
         }
+
         .aprendiz-container {
             position: absolute;
             top: 20px;
@@ -55,85 +64,113 @@
             overflow: hidden;
             border-radius: 10px;
         }
+
         .aprendiz-img {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            mask-image: linear-gradient(to bottom, black 90%, transparent 100%);
-            -webkit-mask-image: linear-gradient(to bottom, black 90%, transparent 100%);
         }
+
         .info-container {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
             padding: 20px;
+            margin-top: 100px;
+            text-align: center;
         }
+
         .aprendiz-title {
-            font-weight: 600;
-            font-size: 18px;
             font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 10px;
         }
+
         .separator {
             border: none;
             height: 2px;
             background-color: #39ff14;
+            margin: 10px 0;
         }
-        .cedula, .ficha, .programa {
+
+        .cedula,
+        .ficha,
+        .programa {
             font-size: 14px;
-            font-weight: 400;
+            margin: 5px 0;
         }
+
         .nombre {
-            font-weight: 600;
+            font-weight: bold;
             font-size: 18px;
-            text-align: center;
+            margin: 10px 0;
         }
+
         .programa {
             font-size: 12px;
         }
+
         .qr-container {
             position: absolute;
-            bottom: 4px;
+            bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
             width: 150px;
-            background-color: rgba(78, 248, 78, 0.2);
             height: 150px;
+            background-color: rgba(78, 248, 78, 0.2);
             display: flex;
             justify-content: center;
             align-items: center;
         }
+
         .qr {
-            top: 20px;
+            width: 120px;
+            height: 120px;
+        }
+
+        .qr-unavailable {
+            font-size: 14px;
+            color: #333;
+            text-align: center;
         }
     </style>
 </head>
+
 <body>
-    @foreach($carnets as $carnet)
     <div class="card">
+        <div class="header-green"></div>
         <div class="logo-container">
-            <img src="{{ asset('img/sena-logo.png') }}" alt="Logo SENA" class="logo">
-            <div class="logo-text">SENA</div>
+            <img src="{{ public_path('img/sena-logo.png') }}" alt="Logo SENA" class="logo">
+            <div class="logo-text">Regional Guaviare</div>
         </div>
         <div class="aprendiz-container">
-            @if($carnet['photo'])
-                <img src="data:image/jpeg;base64,{{ $carnet['photo'] }}" alt="Foto del Aprendiz" class="aprendiz-img">
+            @if (isset($photo))
+                <img src="data:image/jpeg;base64,{{ $photo }}" alt="Foto del Aprendiz" class="aprendiz-img">
             @else
-                <img src="{{ asset('img/default-photo.jpg') }}" alt="Foto por defecto" class="aprendiz-img">
+                <img src="{{ public_path('img/default-photo.jpg') }}" alt="Foto por defecto" class="aprendiz-img">
             @endif
         </div>
         <div class="info-container">
             <h2 class="aprendiz-title">Aprendiz</h2>
             <hr class="separator">
-            <p class="nombre">{{ $carnet['aprendiz'] }}</p>
-            <p class="cedula">CC: {{ $carnet['documento'] }}</p>
-            <p class="ficha">Ficha: {{ $carnet['ficha'] }}</p>
-            <p class="programa">{{ $carnet['programa'] }}</p>
+            @isset($aprendiz)
+                <p class="nombre">{{ $aprendiz }}</p>
+            @endisset
+            @isset($documento)
+                <p class="cedula">CC: {{ $documento }}</p>
+            @endisset
+            @isset($ficha)
+                <p class="ficha">Ficha: {{ $ficha }}</p>
+            @endisset
+            @isset($programa)
+                <p class="programa">{{ $programa }}</p>
+            @endisset
         </div>
         <div class="qr-container">
-            <div class="qr">{!! $carnet['qr_code'] !!}</div>
+            @if (!empty($qr_code) && filter_var($qr_code, FILTER_VALIDATE_URL) || strpos($qr_code, 'data:image') === 0)
+                <img src="{{ $qr_code }}" alt="QR Code" class="qr">
+            @else
+                <img src="{{ public_path('img/qr-placeholder.png') }}" alt="QR Code por defecto" class="qr">
+            @endif
         </div>
     </div>
-    @endforeach
 </body>
+
 </html>

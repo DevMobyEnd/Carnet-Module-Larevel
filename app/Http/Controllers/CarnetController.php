@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
@@ -11,8 +10,8 @@ use Endroid\QrCode\QrCode;
 use Endroid\QrCode\Writer\SvgWriter;
 use GuzzleHttp\Client;
 use App\Mail\CarnetMail;
-
-
+use Barryvdh\DomPDF\Facade\Pdf;
+use Intervention\Image\Facades\Image;
 
 class CarnetController extends Controller
 {
@@ -56,7 +55,7 @@ class CarnetController extends Controller
             $nombres = implode(' ', array_slice($nombrePartes, 0, -2));
             $apellidos = implode(' ', array_slice($nombrePartes, -2));
 
-            $qrData = "{$nombres}|{$apellidos}|{$Documento}";
+            $qrData = "{$nombres} | {$apellidos} | {$Documento}";
             $qrCode = new QrCode($qrData);
             $qrCode->setSize(120);
             $writer = new SvgWriter();
@@ -87,7 +86,7 @@ class CarnetController extends Controller
         // Guarda los carnets en la sesión
         session(['carnets' => $carnets]);
 
-        return view('carnet.result', compact('carnets'));
+        return view('carnet.result', ['carnets' => $carnets]);
     }
 
     private function removeImageBackground($photo)
@@ -135,78 +134,129 @@ class CarnetController extends Controller
         }
     }
 
-    // public function sendCarnetByEmail(Request $request)
-    // {
-    //     $carnetData = $request->validate([
-    //         'aprendiz' => 'required',
-    //         'documento' => 'required',
-    //         'correo' => 'required|email',
-    //         'ficha' => 'required',
-    //         'programa' => 'required',
-    //         'qr_code' => 'required',
-    //         'photo' => 'required'
-    //     ]);
-
-    //     Log::info('Datos del carnet a enviar: ', $carnetData);
-
-    //     try {
-    //         Mail::send('emails.carnet', $carnetData, function ($message) use ($carnetData) {
-    //             $message->to($carnetData['correo'], $carnetData['aprendiz'])
-    //                 ->subject('Tu Carnet Digital SENA');
-    //         });
-
-    //         Log::info('Correo enviado a: ' . $carnetData['correo']);
-    //         return response()->json(['message' => 'Carnet enviado con éxito']);
-    //     } catch (\Exception $e) {
-    //         Log::error('Error al enviar el carnet por correo: ' . $e->getMessage());
-    //         return response()->json(['error' => 'No se pudo enviar el carnet: ' . $e->getMessage()], 500);
-    //     }
-    // }
-
-    public function sendAll()
+    public function sendCarnetByEmail(Request $request)
     {
-        $carnets = session('carnets', []);
-        Log::info('Iniciando envío masivo de carnets. Total de carnets: ' . count($carnets));
+        $carnetData = $request->validate([
+            'aprendiz' => 'required',
+            'documento' => 'required',
+            'correo' => 'required|email',
+            'ficha' => 'required',
+            'programa' => 'required',
+            'qr_code' => 'required',
+            'photo' => 'required'
+        ]);
 
-        if (empty($carnets)) {
-            Log::warning('No hay carnets en la sesión para enviar.');
-            return redirect()->route('carnet.index')->with('warning', 'No hay carnets para enviar.');
+        Log::info('Datos del carnet a enviar: ', $carnetData);
+
+        try {
+            Mail::send('emails.carnet', $carnetData, function ($message) use ($carnetData) {
+                $message->to($carnetData['correo'], $carnetData['aprendiz'])
+                    ->subject('Tu Carnet Digital SENA');
+            });
+
+            Log::info('Correo enviado a: ' . $carnetData['correo']);
+            return response()->json(['message' => 'Carnet enviado con éxito']);
+        } catch (\Exception $e) {
+            Log::error('Error al enviar el carnet por correo: ' . $e->getMessage());
+            return response()->json(['error' => 'No se pudo enviar el carnet: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function sendAll() 
+{ 
+    $carnets = session('carnets', []); 
+    Log::info('Iniciando envío masivo de carnets. Total de carnets: ' . count($carnets));
+    
+    if (empty($carnets)) { 
+        Log::warning('No hay carnets en la sesión para enviar.'); 
+        return redirect()->route('carnet.index')->with('warning', 'No hay carnets para enviar.'); 
+    }
+    
+    $successCount = 0; 
+    $failCount = 0; 
+    $failedEmails = [];
+    
+    foreach ($carnets as $carnet) { 
+        // Verificar que todos los datos necesarios estén presentes 
+        if (!isset($carnet['aprendiz'], $carnet['documento'], $carnet['correo'], $carnet['ficha'], $carnet['programa'], $carnet['qr_code'], $carnet['photo'])) { 
+            Log::error('Datos de carnet incompletos:', $carnet); 
+            $failCount++; 
+            $failedEmails[] = $carnet['correo'] ?? 'Correo no especificado'; 
+            continue; 
         }
 
-        $successCount = 0;
-        $failCount = 0;
-        $failedEmails = [];
-
-        foreach ($carnets as $carnet) {
-            // Verificar que todos los datos necesarios estén presentes
-            if (!isset($carnet['aprendiz'], $carnet['documento'], $carnet['correo'], $carnet['ficha'], $carnet['programa'], $carnet['qr_code'], $carnet['photo'])) {
-                Log::error('Datos de carnet incompletos:', $carnet);
-                $failCount++;
-                $failedEmails[] = $carnet['correo'] ?? 'Correo no especificado';
-                continue;
-            }
-
-            try {
-                Mail::send('carnet.carnet', $carnet, function ($message) use ($carnet) {
-                    $message->to($carnet['correo'], $carnet['aprendiz'])
-                        ->subject('Tu Carnet Digital SENA');
-                });
-                Log::info('Correo enviado a: ' . $carnet['correo']);
+        try { 
+            // Generar el PDF del carnet 
+            $pdfPath = $this->generateCarnetPDF($carnet);
+            
+            if ($pdfPath && file_exists($pdfPath)) { 
+                // Enviar el carnet por correo 
+                Mail::to($carnet['correo'])
+                    ->send(new CarnetMail($carnet, $pdfPath)); // Aquí puedes modificar el contenido del correo
+                
+                Log::info('Correo enviado a: ' . $carnet['correo']); 
                 $successCount++;
-            } catch (\Exception $e) {
-                Log::error('Error al enviar carnet a: ' . $carnet['correo'] . '. Error: ' . $e->getMessage());
-                $failCount++;
-                $failedEmails[] = $carnet['correo'];
+                
+                // Eliminar el archivo PDF temporal 
+                unlink($pdfPath); 
+            } else { 
+                throw new \Exception("No se pudo generar el PDF para el carnet"); 
+            } 
+        } catch (\Exception $e) { 
+            Log::error('Error al enviar carnet a: ' . $carnet['correo'] . '. Error: ' . $e->getMessage()); 
+            $failCount++; 
+            $failedEmails[] = $carnet['correo']; 
+        } 
+    }
+    
+    Log::info("Proceso de envío completado. Éxitos: $successCount. Fallos: $failCount");
+    
+    if ($failCount > 0) { 
+        Log::warning('Algunos carnets no pudieron ser enviados: ' . implode(', ', $failedEmails)); 
+        return redirect()->route('carnet.index')->with('warning', "Se enviaron $successCount carnets. $failCount carnets no pudieron ser enviados."); 
+    } else { 
+        return redirect()->route('carnet.index')->with('success', "Todos los carnets ($successCount) fueron enviados con éxito."); 
+    } 
+}
+
+
+    private function generateCarnetPDF($carnet)
+    {
+        try {
+            Log::info('Datos del carnet antes de generar PDF:', $carnet);
+            // Asegúrese de que el directorio exista
+            $tempDir = storage_path('app/temp_carnets');
+            if (!file_exists($tempDir)) {
+                mkdir($tempDir, 0777, true);
             }
-        }
 
-        Log::info("Proceso de envío completado. Éxitos: $successCount. Fallos: $failCount");
+            // Asegúrese de que todos los datos necesarios estén presentes
+            $data = [
+                'aprendiz' => $carnet['aprendiz'] ?? 'Sin nombre',
+                'documento' => $carnet['documento'] ?? 'Sin documento',
+                'ficha' => $carnet['ficha'] ?? 'Sin ficha',
+                'programa' => $carnet['programa'] ?? 'Sin programa',
+                'qr_code' => $carnet['qr_code'] ?? '',  // Asegúrese de que esto esté presente
+                'photo' => $carnet['photo'] ?? null
+            ];
 
-        if ($failCount > 0) {
-            Log::warning('Algunos carnets no pudieron ser enviados: ' . implode(', ', $failedEmails));
-            return redirect()->route('carnet.index')->with('warning', "Se enviaron $successCount carnets. $failCount carnets no pudieron ser enviados.");
-        } else {
-            return redirect()->route('carnet.index')->with('success', "Todos los carnets ($successCount) fueron enviados con éxito.");
+            // Generar el PDF pasando los datos correctamente
+            $pdf = PDF::loadView('carnet.carnet', $data)
+                ->setPaper('a4', 'landscape')
+                ->setOptions([
+                    'isHtml5ParserEnabled' => true,
+                    'isRemoteEnabled' => true,
+                    'defaultFont' => 'sans-serif',
+                    'chroot' => public_path(),
+                ]);
+
+            $tempPath = $tempDir . '/' . uniqid() . '.pdf';
+            $pdf->save($tempPath);
+
+            return $tempPath;
+        } catch (\Exception $e) {
+            Log::error('Error generando PDF: ' . $e->getMessage());
+            return null;
         }
     }
 
