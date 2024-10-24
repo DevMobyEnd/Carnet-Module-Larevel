@@ -29,6 +29,5 @@ class CarnetMail extends Mailable
                         'photo' => $this->carnetData['photo'],
                         'qr_code' => $this->carnetData['qr_code'],
                     ]);
-                    
     }
 }
